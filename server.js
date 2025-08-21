@@ -31,10 +31,11 @@ console.log('⚡ Express app initialized');
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 // CORS: allow origins from env (comma-separated), default to local dev
-const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173')
+const allowedOrigins = (process.env.CORS_ORIGIN || 'https://onlineportal-9rqm.onrender.com')
   .split(',')
   .map(o => o.trim())
   .filter(Boolean);
+console.log('🛡️  CORS allowed origins:', allowedOrigins);
 
 app.use(
   cors({
@@ -46,8 +47,12 @@ app.use(
     },
     credentials: true,
     optionsSuccessStatus: 204,
+    methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
+    allowedHeaders: ['Content-Type','Authorization','X-Requested-With'],
   })
 );
+// Explicitly handle preflight requests for all routes
+app.options('*', cors());
 // Trust proxy for rate limiting and correct client IP on Render
 app.set('trust proxy', 1);
 
@@ -62,6 +67,8 @@ const limiter = rateLimit({
   max: 300, // max requests per window per IP
   standardHeaders: true,
   legacyHeaders: false,
+  // Do not rate-limit preflight requests or health checks
+  skip: (req) => req.method === 'OPTIONS' || req.path === '/api/test',
 });
 app.use('/api', limiter);
 console.log('🔧 Middleware configured');
