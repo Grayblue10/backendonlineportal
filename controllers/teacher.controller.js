@@ -391,6 +391,7 @@ export const updateStudentGrade = asyncHandler(async (req, res, next) => {
     { 
       grade,
       teacher: teacher._id,
+      gradedBy: req.user.id,
       comments: comments || '',
       updatedAt: Date.now()
     },
@@ -1192,7 +1193,11 @@ export const createGrade = asyncHandler(async (req, res, next) => {
  */
 export const updateGrade = asyncHandler(async (req, res, next) => {
   // Do not hard-require a Teacher document for updates
-  await Teacher.findById(req.user.id).catch(() => null);
+  // Resolve teacher for ownership checks
+  let teacher = await Teacher.findById(req.user.id).catch(() => null);
+  if (!teacher) {
+    teacher = await Teacher.findOne({ user: req.user.id }).catch(() => null);
+  }
 
   let grade = await Grade.findById(req.params.id);
   
@@ -1201,7 +1206,13 @@ export const updateGrade = asyncHandler(async (req, res, next) => {
   }
 
   // Make sure the teacher owns this grade
-  if (grade.gradedBy.toString() !== req.user.id) {
+  const isAdmin = req.user.role === 'admin';
+  const ownsByGradedBy = grade.gradedBy && grade.gradedBy.toString() === req.user.id;
+  const ownsByTeacher = grade.teacher && (
+    grade.teacher.toString() === (teacher?._id?.toString() || '') ||
+    grade.teacher.toString() === req.user.id
+  );
+  if (!(isAdmin || ownsByGradedBy || ownsByTeacher)) {
     return next(new ErrorResponse('Not authorized to update this grade', 403));
   }
 
@@ -1228,7 +1239,11 @@ export const updateGrade = asyncHandler(async (req, res, next) => {
  */
 export const deleteGrade = asyncHandler(async (req, res, next) => {
   // Do not hard-require a Teacher document for deletions
-  await Teacher.findById(req.user.id).catch(() => null);
+  // Resolve teacher for ownership checks
+  let teacher = await Teacher.findById(req.user.id).catch(() => null);
+  if (!teacher) {
+    teacher = await Teacher.findOne({ user: req.user.id }).catch(() => null);
+  }
 
   const grade = await Grade.findById(req.params.id);
   
@@ -1237,7 +1252,13 @@ export const deleteGrade = asyncHandler(async (req, res, next) => {
   }
 
   // Make sure the teacher owns this grade
-  if (grade.gradedBy.toString() !== req.user.id) {
+  const isAdmin = req.user.role === 'admin';
+  const ownsByGradedBy = grade.gradedBy && grade.gradedBy.toString() === req.user.id;
+  const ownsByTeacher = grade.teacher && (
+    grade.teacher.toString() === (teacher?._id?.toString() || '') ||
+    grade.teacher.toString() === req.user.id
+  );
+  if (!(isAdmin || ownsByGradedBy || ownsByTeacher)) {
     return next(new ErrorResponse('Not authorized to delete this grade', 403));
   }
 
