@@ -821,6 +821,14 @@ const getStudentSubjects = asyncHandler(async (req, res, next) => {
 
     // Transform data to match frontend expectations
     const subjects = await Promise.all(classes.map(async (cls) => {
+      if (!cls?.schedule || (!Array.isArray(cls.schedule.days) || cls.schedule.days.length === 0)) {
+        console.warn('[getStudentSubjects] Class has no days in schedule:', {
+          classId: cls._id?.toString?.(),
+          classCode: cls.code,
+          subject: cls.subject?.code,
+          schedule: cls.schedule
+        });
+      }
       // Get grades for this subject to calculate current grade and average
       // Grade.subject is embedded, match by subject.code to ensure accuracy
       const subjectGrades = await Grade.find({ 
@@ -884,6 +892,8 @@ const getStudentSubjects = asyncHandler(async (req, res, next) => {
           ? `${cls.schedule.days.join(', ')} ${cls.schedule.startTime || ''}${(cls.schedule.startTime && cls.schedule.endTime) ? ' - ' : ''}${cls.schedule.endTime || ''}`.trim() || 'Schedule TBA'
           : 'Schedule TBA',
         room: cls.schedule?.room || 'Room TBA',
+        // expose raw schedule for debugging/frontend fallback
+        rawSchedule: cls.schedule || null,
         currentGrade: currentGrade,
         averageScore: averageScore,
         completedAssignments: completedAssignments,
