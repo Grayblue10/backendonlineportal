@@ -371,7 +371,11 @@ export const updateTeacherProfile = asyncHandler(async (req, res, next) => {
 // @access  Private/Teacher
 export const updateStudentGrade = asyncHandler(async (req, res, next) => {
   const { subject, grade, semester, comments } = req.body;
-  const teacher = await Teacher.findOne({ user: req.user.id });
+  // Resolve current teacher context: prefer _id match, fallback to nested user ref
+  let teacher = await Teacher.findById(req.user.id);
+  if (!teacher) {
+    teacher = await Teacher.findOne({ user: req.user.id });
+  }
   
   if (!teacher) {
     return next(new ErrorResponse('Teacher context is required', 400));
