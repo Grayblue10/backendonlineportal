@@ -143,8 +143,7 @@ async function startServer() {
     console.log('🚀 Starting HTTP server...');
     const server = app.listen(PORT, () => {
       console.log(`\n✅ Server running on port ${PORT}`);
-      console.log(`🌐 Backend URL: http://localhost:${PORT}`);
-      console.log(`🎯 Test URL: http://localhost:${PORT}/api/test\n`);
+      
     });
 
     server.on('error', (error) => {

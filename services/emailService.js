@@ -47,7 +47,7 @@ const sendEmail = async (options) => {
  * @returns {Promise<Object>} - Result of the send operation
  */
 const sendPasswordResetEmail = async (to, token) => {
-  const baseUrl = process.env.FRONTEND_URL || process.env.CLIENT_URL || 'http://localhost:5173';
+  const baseUrl = process.env.FRONTEND_URL || process.env.CLIENT_URL || 'https://onlineportal-9rqm.onrender.com';
   const resetUrl = `${baseUrl.replace(/\/$/, '')}/reset-password/${token}`;
   
   return sendEmail({

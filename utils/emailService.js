@@ -138,7 +138,7 @@ const sendEmail = async (options) => {
  * @returns {Promise<Object>} Email info object
  */
 const sendPasswordResetEmail = async (email, token, userId, userRole = 'user') => {
-  const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password/${token}`;
+  const resetUrl = `${process.env.FRONTEND_URL || 'https://onlineportal-9rqm.onrender.com'}/reset-password/${token}`;
   
   console.log('Sending password reset email to:', email);
   console.log('Reset URL:', resetUrl);
@@ -265,7 +265,7 @@ const sendWelcomeEmail = async (email, name, role, tempPassword = null) => {
         </p>
         
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/login" 
+          <a href="${process.env.FRONTEND_URL || 'https://onlineportal-9rqm.onrender.com'}/login" 
              style="background-color: #3498db; color: white; padding: 12px 30px; 
                     text-decoration: none; border-radius: 5px; display: inline-block;
                     font-weight: bold; font-size: 16px;">
