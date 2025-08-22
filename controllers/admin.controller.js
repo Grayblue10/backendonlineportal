@@ -829,6 +829,14 @@ const searchStudents = asyncHandler(async (req, res) => {
 const enrollStudent = asyncHandler(async (req, res) => {
   try {
     const { studentId, subjectId, semester, academicYear } = req.body;
+    // Accept schedule details from the enrollment payload
+    // Support either a nested schedule object or flat fields
+    const bodySchedule = req.body.schedule || {
+      days: req.body.scheduleDays || req.body.days || [],
+      startTime: req.body.startTime || req.body.start_time || null,
+      endTime: req.body.endTime || req.body.end_time || null,
+      room: req.body.room || req.body.roomName || req.body.room_number || req.body.location || null
+    };
     
     console.log(`[AdminEnroll] Enrolling student ${studentId} in subject ${subjectId}`);
     
@@ -895,6 +903,15 @@ const enrollStudent = asyncHandler(async (req, res) => {
         term,
         academicYear: ay,
         students: [studentId],
+        // Persist schedule if provided by Admin Enrollment
+        ...(bodySchedule && (Array.isArray(bodySchedule.days) || bodySchedule.startTime || bodySchedule.endTime || bodySchedule.room)
+          ? { schedule: {
+              days: Array.isArray(bodySchedule.days) ? bodySchedule.days : [],
+              startTime: bodySchedule.startTime || null,
+              endTime: bodySchedule.endTime || null,
+              room: bodySchedule.room || null
+            }}
+          : {}),
         capacity: 30,
         createdBy: req.user.id
         // teacher field is optional and can be assigned later
@@ -909,8 +926,25 @@ const enrollStudent = asyncHandler(async (req, res) => {
       
       // Add student to existing class
       classDoc.students.push(studentId);
+      // If schedule provided and class has no schedule yet, set it (do not overwrite existing)
+      if (
+        bodySchedule &&
+        (!classDoc.schedule || (
+          (!classDoc.schedule.days || classDoc.schedule.days.length === 0) &&
+          !classDoc.schedule.startTime &&
+          !classDoc.schedule.endTime &&
+          !classDoc.schedule.room
+        ))
+      ) {
+        classDoc.schedule = {
+          days: Array.isArray(bodySchedule.days) ? bodySchedule.days : [],
+          startTime: bodySchedule.startTime || null,
+          endTime: bodySchedule.endTime || null,
+          room: bodySchedule.room || null
+        };
+      }
       await classDoc.save();
-      
+
       console.log(`[AdminEnroll] Added student to existing class: ${classDoc.name}`);
     }
     

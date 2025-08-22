@@ -880,9 +880,9 @@ const getStudentSubjects = asyncHandler(async (req, res, next) => {
           email: cls.teacher?.email || ''
         },
         teacherName: cls.teacher ? `${cls.teacher.firstName} ${cls.teacher.lastName}` : 'TBA',
-        schedule: cls.schedule?.days ? 
-          `${cls.schedule.days.join(', ')} - ${cls.schedule.startTime}` : 
-          'Schedule TBA',
+        schedule: (cls.schedule && Array.isArray(cls.schedule.days) && cls.schedule.days.length)
+          ? `${cls.schedule.days.join(', ')} ${cls.schedule.startTime || ''}${(cls.schedule.startTime && cls.schedule.endTime) ? ' - ' : ''}${cls.schedule.endTime || ''}`.trim() || 'Schedule TBA'
+          : 'Schedule TBA',
         room: cls.schedule?.room || 'Room TBA',
         currentGrade: currentGrade,
         averageScore: averageScore,
