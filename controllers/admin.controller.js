@@ -837,6 +837,22 @@ const enrollStudent = asyncHandler(async (req, res) => {
       endTime: req.body.endTime || req.body.end_time || null,
       room: req.body.room || req.body.roomName || req.body.room_number || req.body.location || null
     };
+
+    // Normalize days to match Class.model enum (full weekday names)
+    const dayMap = {
+      'M': 'Monday', 'Mon': 'Monday', 'MON': 'Monday', 'monday': 'Monday', 'Monday': 'Monday',
+      'T': 'Tuesday', 'Tue': 'Tuesday', 'TUE': 'Tuesday', 'tuesday': 'Tuesday', 'Tuesday': 'Tuesday',
+      'W': 'Wednesday', 'Wed': 'Wednesday', 'WED': 'Wednesday', 'wednesday': 'Wednesday', 'Wednesday': 'Wednesday',
+      'TH': 'Thursday', 'Thu': 'Thursday', 'THU': 'Thursday', 'thursday': 'Thursday', 'Thursday': 'Thursday',
+      'F': 'Friday', 'Fri': 'Friday', 'FRI': 'Friday', 'friday': 'Friday', 'Friday': 'Friday',
+      'S': 'Saturday', 'Sat': 'Saturday', 'SAT': 'Saturday', 'saturday': 'Saturday', 'Saturday': 'Saturday',
+      'SU': 'Sunday', 'Sun': 'Sunday', 'SUN': 'Sunday', 'sunday': 'Sunday', 'Sunday': 'Sunday'
+    };
+    const normalizeDays = (days) => Array.isArray(days) 
+      ? days.map(d => dayMap[d] || dayMap[String(d).trim()])
+              .filter(Boolean)
+      : [];
+    const normalizedDays = normalizeDays(bodySchedule.days);
     
     console.log(`[AdminEnroll] Enrolling student ${studentId} in subject ${subjectId}`);
     
@@ -906,7 +922,7 @@ const enrollStudent = asyncHandler(async (req, res) => {
         // Persist schedule if provided by Admin Enrollment
         ...(bodySchedule && (Array.isArray(bodySchedule.days) || bodySchedule.startTime || bodySchedule.endTime || bodySchedule.room)
           ? { schedule: {
-              days: Array.isArray(bodySchedule.days) ? bodySchedule.days : [],
+              days: normalizedDays,
               startTime: bodySchedule.startTime || null,
               endTime: bodySchedule.endTime || null,
               room: bodySchedule.room || null
@@ -937,7 +953,7 @@ const enrollStudent = asyncHandler(async (req, res) => {
         ))
       ) {
         classDoc.schedule = {
-          days: Array.isArray(bodySchedule.days) ? bodySchedule.days : [],
+          days: normalizedDays,
           startTime: bodySchedule.startTime || null,
           endTime: bodySchedule.endTime || null,
           room: bodySchedule.room || null
@@ -975,7 +991,16 @@ const enrollStudent = asyncHandler(async (req, res) => {
     });
     
   } catch (error) {
-    console.error('[AdminEnroll] Error enrolling student:', error);
+    console.error('[AdminEnroll] Error enrolling student:', error?.message, error?.stack);
+    // Surface validation details if present
+    if (error?.name === 'ValidationError') {
+      const details = Object.values(error.errors || {}).map(e => e.message).join('; ');
+      throw new ErrorResponse(`Validation failed: ${details}`, 400);
+    }
+    // Duplicate class code (unique index) or Mongo duplicate key
+    if (error?.code === 11000) {
+      throw new ErrorResponse('A class with the same code already exists for this term/year', 400);
+    }
     throw error instanceof ErrorResponse ? error : new ErrorResponse('Error enrolling student', 500);
   }
 });
