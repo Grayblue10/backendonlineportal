@@ -534,7 +534,9 @@ const getStudentGrades = asyncHandler(async (req, res, next) => {
     // Note: subject is embedded (not a ref), so do not populate it
     const grades = await Grade.find({ student: student._id })
       // Avoid populate for non-ref fields to prevent StrictPopulateError
-      .sort('-updatedAt');
+      .sort('-updatedAt')
+      .populate('gradedBy', 'firstName lastName')
+      .populate({ path: 'class', select: 'teacher', populate: { path: 'teacher', select: 'firstName lastName' } });
 
     console.log(`[getStudentGrades] Found ${grades.length} grades`);
 
@@ -583,9 +585,14 @@ const getStudentGrades = asyncHandler(async (req, res, next) => {
         numeric = percentToNumeric(percent);
       }
 
-      const teacherName = (grade.gradedBy && typeof grade.gradedBy === 'object' && grade.gradedBy.firstName)
+      // Prefer the user who graded it; fallback to class assigned teacher if available
+      let teacherName = (grade.gradedBy && typeof grade.gradedBy === 'object' && grade.gradedBy.firstName)
         ? `${grade.gradedBy.firstName} ${grade.gradedBy.lastName || ''}`.trim()
-        : 'Unknown Teacher';
+        : null;
+      if (!teacherName && grade.class && grade.class.teacher && grade.class.teacher.firstName) {
+        teacherName = `${grade.class.teacher.firstName} ${grade.class.teacher.lastName || ''}`.trim();
+      }
+      if (!teacherName) teacherName = 'Unknown Teacher';
 
       return {
         _id: grade._id,
