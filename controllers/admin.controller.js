@@ -261,6 +261,96 @@ const getStudentEnrollments = asyncHandler(async (req, res) => {
 });
 
 /**
+ * @desc    Unassign a teacher from a subject for a specific semester/year.
+ *          Optionally delete the class if it has no students (deleteIfEmpty).
+ * @route   DELETE /api/admin/teachers/unassign
+ * @access  Private/Admin
+ */
+const unassignTeacherFromSubject = asyncHandler(async (req, res) => {
+  const { teacherId, subjectId, semester, academicYear, deleteIfEmpty } = req.body || {};
+
+  if (!teacherId || !subjectId || !semester || !academicYear) {
+    throw new ErrorResponse('teacherId, subjectId, semester, and academicYear are required', 400);
+  }
+
+  if (!['first', 'second'].includes(semester)) {
+    throw new ErrorResponse('Semester must be first or second', 400);
+  }
+
+  // Validate teacher and subject existence
+  const [teacher, subject] = await Promise.all([
+    Teacher.findById(teacherId),
+    Subject.findById(subjectId)
+  ]);
+  if (!teacher) throw new ErrorResponse('Teacher not found', 404);
+  if (!subject) throw new ErrorResponse('Subject not found', 404);
+
+  const term = semester === 'first' ? 'Fall' : 'Spring';
+  const ay = `${parseInt(academicYear, 10)}-${parseInt(academicYear, 10) + 1}`;
+
+  const cls = await Class.findOne({
+    subject: subjectId,
+    teacher: teacherId,
+    term,
+    academicYear: ay
+  });
+
+  if (!cls) {
+    throw new ErrorResponse('Assigned class not found for the given parameters', 404);
+  }
+
+  let action = 'unassigned';
+  if (deleteIfEmpty && (!cls.students || cls.students.length === 0)) {
+    await Class.findByIdAndDelete(cls._id);
+    action = 'deleted_class';
+  } else {
+    cls.teacher = null;
+    cls.updatedBy = req.user?.id || req.user?._id;
+    await cls.save();
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: action === 'deleted_class'
+      ? 'Class deleted because it had no students'
+      : 'Teacher unassigned from subject successfully',
+    data: {
+      action,
+      classId: cls._id,
+      subject: { id: subject._id, name: subject.name, code: subject.code },
+      semester,
+      academicYear: ay
+    }
+  });
+});
+
+/**
+ * @desc    Delete a class by ID. Fails if students are enrolled unless force=true.
+ * @route   DELETE /api/admin/classes/:id
+ * @access  Private/Admin
+ */
+const deleteClassById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const force = req.query.force === 'true' || req.body?.force === true;
+
+  const cls = await Class.findById(id);
+  if (!cls) {
+    throw new ErrorResponse('Class not found', 404);
+  }
+
+  if (cls.students && cls.students.length > 0 && !force) {
+    throw new ErrorResponse('Cannot delete class with enrolled students. Pass force=true to override.', 400);
+  }
+
+  await Class.findByIdAndDelete(id);
+
+  return res.status(200).json({
+    success: true,
+    message: 'Class deleted successfully'
+  });
+});
+
+/**
  * @desc    Delete/unenroll a student from a class by enrollmentId (class id)
  *          Preferred route from admin UI: accepts optional studentId query/body; if not provided, returns 400.
  * @route   DELETE /api/admin/enrollments/:enrollmentId
@@ -1572,5 +1662,7 @@ export {
   assignProgramToStudent,
   assignTeacherToSubjects,
   getTeachersForAssignment,
-  getEnrollmentStats
+  getEnrollmentStats,
+  unassignTeacherFromSubject,
+  deleteClassById
 };

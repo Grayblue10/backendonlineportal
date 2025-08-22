@@ -21,7 +21,9 @@ import {
   assignProgramToStudent,
   assignTeacherToSubjects,
   getTeachersForAssignment,
-  getEnrollmentStats
+  getEnrollmentStats,
+  unassignTeacherFromSubject,
+  deleteClassById
 } from '../controllers/admin.controller.js';
 import { protect, authorize } from '../middlewares/auth.middleware.js';
 import { body, param } from 'express-validator';
@@ -177,6 +179,20 @@ router.post('/teachers/assign', [
   body('semester').isIn(['first', 'second']).withMessage('Semester must be first or second'),
   body('academicYear').isNumeric().withMessage('Academic year must be a number')
 ], assignTeacherToSubjects);
+
+// Unassign a teacher from a subject for a given semester/year (optional deleteIfEmpty)
+router.delete('/teachers/unassign', [
+  body('teacherId').isMongoId().withMessage('Valid teacher ID is required'),
+  body('subjectId').isMongoId().withMessage('Valid subject ID is required'),
+  body('semester').isIn(['first', 'second']).withMessage('Semester must be first or second'),
+  body('academicYear').isNumeric().withMessage('Academic year must be a number'),
+  body('deleteIfEmpty').optional().isBoolean()
+], unassignTeacherFromSubject);
+
+// Delete a class by ID (fails if students enrolled unless force=true)
+router.delete('/classes/:id', [
+  param('id').isMongoId().withMessage('Valid class ID is required')
+], deleteClassById);
 
 // Enrollment statistics
 router.get('/enrollment/stats', getEnrollmentStats);
