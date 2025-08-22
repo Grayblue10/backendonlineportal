@@ -213,6 +213,176 @@ const getDashboard = asyncHandler(async (req, res) => {
   }
 });
 
+/**
+ * @desc    Get a student's enrollments (classes they're enrolled in)
+ * @route   GET /api/admin/students/:studentId/enrollments
+ * @access  Private/Admin
+ */
+const getStudentEnrollments = asyncHandler(async (req, res) => {
+  const { studentId } = req.params;
+
+  const student = await Student.findById(studentId);
+  if (!student) {
+    throw new ErrorResponse('Student not found', 404);
+  }
+
+  // Find classes where this student is enrolled
+  const classes = await Class.find({ students: studentId })
+    .populate('subject', 'name code units')
+    .populate('teacher', 'firstName lastName')
+    .sort({ academicYear: -1, term: 1 })
+    .lean();
+
+  const enrollments = classes.map(cls => ({
+    _id: cls._id,
+    id: cls._id,
+    classId: cls._id,
+    subject: cls.subject ? {
+      _id: cls.subject._id,
+      id: cls.subject._id,
+      code: cls.subject.code,
+      name: cls.subject.name,
+      units: cls.subject.units
+    } : null,
+    term: cls.term, // 'Fall' | 'Spring'
+    semester: cls.term === 'Fall' ? 'first' : (cls.term === 'Spring' ? 'second' : undefined),
+    academicYear: cls.academicYear,
+    teacher: cls.teacher ? {
+      _id: cls.teacher._id,
+      name: `${cls.teacher.firstName || ''} ${cls.teacher.lastName || ''}`.trim()
+    } : null
+  }));
+
+  res.status(200).json({
+    success: true,
+    count: enrollments.length,
+    data: enrollments
+  });
+});
+
+/**
+ * @desc    Delete/unenroll a student from a class by enrollmentId (class id)
+ *          Preferred route from admin UI: accepts optional studentId query/body; if not provided, returns 400.
+ * @route   DELETE /api/admin/enrollments/:enrollmentId
+ * @access  Private/Admin
+ */
+const deleteEnrollmentById = asyncHandler(async (req, res) => {
+  const { enrollmentId } = req.params; // this is Class _id
+  const studentId = req.query.studentId || req.body?.studentId;
+
+  const cls = await Class.findById(enrollmentId);
+  if (!cls) {
+    throw new ErrorResponse('Enrollment not found', 404);
+  }
+
+  if (!studentId) {
+    // Require studentId to avoid removing all students or ambiguity
+    throw new ErrorResponse('studentId is required to remove enrollment', 400);
+  }
+
+  const before = cls.students.length;
+  cls.students = cls.students.filter(s => s.toString() !== String(studentId));
+  if (cls.students.length === before) {
+    // No change
+    throw new ErrorResponse('Student is not enrolled in this class', 404);
+  }
+
+  cls.updatedBy = req.user?.id || req.user?._id;
+  await cls.save();
+
+  return res.status(200).json({
+    success: true,
+    message: 'Enrollment deleted successfully'
+  });
+});
+
+/**
+ * @desc    Unenroll a student using studentId + enrollment info (fallback)
+ * @route   DELETE /api/admin/students/:studentId/enrollments
+ * @access  Private/Admin
+ */
+const deleteStudentEnrollment = asyncHandler(async (req, res) => {
+  const { studentId } = req.params;
+  const { enrollmentId, subjectId, semester, academicYear } = req.body || {};
+
+  const student = await Student.findById(studentId);
+  if (!student) {
+    throw new ErrorResponse('Student not found', 404);
+  }
+
+  let cls;
+  if (enrollmentId) {
+    cls = await Class.findById(enrollmentId);
+  } else if (subjectId && semester && academicYear) {
+    const term = semester === 'first' ? 'Fall' : 'Spring';
+    const ay = `${academicYear}-${parseInt(academicYear, 10) + 1}`;
+    cls = await Class.findOne({ subject: subjectId, term, academicYear: ay });
+  }
+
+  if (!cls) {
+    throw new ErrorResponse('Enrollment not found', 404);
+  }
+
+  const before = cls.students.length;
+  cls.students = cls.students.filter(s => s.toString() !== String(studentId));
+  if (cls.students.length === before) {
+    throw new ErrorResponse('Student is not enrolled in this class', 404);
+  }
+
+  cls.updatedBy = req.user?.id || req.user?._id;
+  await cls.save();
+
+  return res.status(200).json({
+    success: true,
+    message: 'Enrollment deleted successfully'
+  });
+});
+
+/**
+ * @desc    Unenroll a student (final fallback action route)
+ * @route   POST /api/admin/students/unenroll
+ * @access  Private/Admin
+ */
+const unenrollStudent = asyncHandler(async (req, res) => {
+  const { studentId, subjectId, enrollmentId, semester, academicYear } = req.body || {};
+
+  if (!studentId) {
+    throw new ErrorResponse('studentId is required', 400);
+  }
+
+  const student = await Student.findById(studentId);
+  if (!student) {
+    throw new ErrorResponse('Student not found', 404);
+  }
+
+  let cls;
+  if (enrollmentId) {
+    cls = await Class.findById(enrollmentId);
+  } else if (subjectId && semester && academicYear) {
+    const term = semester === 'first' ? 'Fall' : 'Spring';
+    const ay = `${academicYear}-${parseInt(academicYear, 10) + 1}`;
+    cls = await Class.findOne({ subject: subjectId, term, academicYear: ay });
+  }
+
+  if (!cls) {
+    throw new ErrorResponse('Enrollment not found', 404);
+  }
+
+  const before = cls.students.length;
+  cls.students = cls.students.filter(s => s.toString() !== String(studentId));
+  if (cls.students.length === before) {
+    throw new ErrorResponse('Student is not enrolled in this class', 404);
+  }
+
+  cls.updatedBy = req.user?.id || req.user?._id;
+  await cls.save();
+
+  return res.status(200).json({
+    success: true,
+    message: 'Enrollment deleted successfully'
+  });
+});
+
 // Get all users
 const getAllUsers = asyncHandler(async (req, res) => {
   try {
@@ -1395,6 +1565,10 @@ export {
   addOrUpdateGrade,
   searchStudents,
   enrollStudent,
+  getStudentEnrollments,
+  deleteEnrollmentById,
+  deleteStudentEnrollment,
+  unenrollStudent,
   assignProgramToStudent,
   assignTeacherToSubjects,
   getTeachersForAssignment,

@@ -14,6 +14,10 @@ import {
   addOrUpdateGrade,
   searchStudents,
   enrollStudent,
+  getStudentEnrollments,
+  deleteEnrollmentById,
+  deleteStudentEnrollment,
+  unenrollStudent,
   assignProgramToStudent,
   assignTeacherToSubjects,
   getTeachersForAssignment,
@@ -137,6 +141,24 @@ router.post('/students/enroll', [
   body('semester').isIn(['first', 'second']).withMessage('Semester must be first or second'),
   body('academicYear').isNumeric().withMessage('Academic year must be a number')
 ], enrollStudent);
+
+// Enrollment listing and deletion (admin)
+router.get('/students/:studentId/enrollments', [
+  param('studentId').isMongoId().withMessage('Valid student ID is required')
+], getStudentEnrollments);
+
+router.delete('/enrollments/:enrollmentId', [
+  param('enrollmentId').isMongoId().withMessage('Valid enrollment ID is required')
+], deleteEnrollmentById);
+
+router.delete('/students/:studentId/enrollments', [
+  param('studentId').isMongoId().withMessage('Valid student ID is required')
+], deleteStudentEnrollment);
+
+// Fallback unenroll action
+router.post('/students/unenroll', [
+  body('studentId').isMongoId().withMessage('Valid student ID is required')
+], unenrollStudent);
 
 // Program assignment (course assignment) route
 router.post('/students/program', [
