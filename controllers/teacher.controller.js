@@ -633,10 +633,16 @@ export const getTeacherClasses = asyncHandler(async (req, res, next) => {
       });
     }
 
-    // Get all classes taught by this teacher with error handling
+    // Build optional semester filter
+    const { semester: semesterFilter } = req.query || {};
+    let termFilter = {};
+    if (semesterFilter === 'first') termFilter = { term: 'Fall' };
+    if (semesterFilter === 'second') termFilter = { term: 'Spring' };
+
+    // Get all classes taught by this teacher with error handling (optionally filtered by term)
     let classes = [];
     try {
-      classes = await Class.find({ teacher: teacher._id })
+      classes = await Class.find({ teacher: teacher._id, ...termFilter })
         .populate('subject', 'name code')
         .populate('students', 'firstName lastName studentId')
         .sort({ createdAt: -1 });
@@ -650,13 +656,18 @@ export const getTeacherClasses = asyncHandler(async (req, res, next) => {
     // Transform data to match frontend expectations with safe property access
     const transformedClasses = classes.map(cls => {
       console.log(`[getTeacherClasses] Transforming class:`, cls._id);
+      const term = cls.term || null; // 'Fall' | 'Spring'
+      const normalizedSemester = cls.semester
+        || (term === 'Fall' ? 'First Semester' : (term === 'Spring' ? 'Second Semester' : undefined))
+        || 'First Semester';
       return {
         _id: cls._id,
         id: cls._id, // Keep both for compatibility
         name: cls.name || 'Unnamed Class',
         subject: cls.subject?.name || 'Unknown Subject',
         code: cls.subject?.code || cls.code || 'N/A',
-        semester: cls.term || cls.semester || 'First Semester',
+        term,
+        semester: normalizedSemester,
         students: cls.students?.length || 0,
         schedule: cls.schedule?.days?.join(', ') || cls.schedule || 'TBD',
         room: cls.schedule?.room || cls.room || 'TBD',
@@ -1074,27 +1085,38 @@ export const getEnrolledStudents = asyncHandler(async (req, res, next) => {
 
     // Get teacher's classes with enrolled students
     const classes = await Class.find({ teacher: teacher._id })
-      .populate('subject', 'name code')
+      .populate('subject', 'name code semester')
       .populate('students', 'firstName lastName email')
       .sort({ 'subject.name': 1 });
 
-    const enrollmentData = classes.map(cls => ({
-      _id: cls._id,
-      className: cls.name,
-      subject: {
-        _id: cls.subject._id,
-        name: cls.subject.name,
-        code: cls.subject.code
-      },
-      maxStudents: cls.maxStudents || 30,
-      currentStudents: cls.students.length,
-      availableSlots: (cls.maxStudents || 30) - cls.students.length,
-      students: cls.students.map(student => ({
-        _id: student._id,
-        name: `${student.firstName} ${student.lastName}`,
-        email: student.email
-      }))
-    }));
+    const enrollmentData = classes.map(cls => {
+      // Derive term/semester consistently
+      const term = cls.term || null; // Expected values: 'Fall' | 'Spring'
+      // Prefer class.semester if present; else derive from term; else fallback to subject.semester
+      const derivedSemesterFromTerm = term === 'Fall' ? 'First Semester' : (term === 'Spring' ? 'Second Semester' : undefined);
+      const semester = cls.semester || derivedSemesterFromTerm || (cls.subject?.semester === 'first' ? 'First Semester' : (cls.subject?.semester === 'second' ? 'Second Semester' : undefined));
+
+      return {
+        _id: cls._id,
+        className: cls.name,
+        subject: {
+          _id: cls.subject._id,
+          name: cls.subject.name,
+          code: cls.subject.code
+        },
+        term: term, // 'Fall' | 'Spring'
+        semester: semester, // 'First Semester' | 'Second Semester'
+        academicYear: cls.academicYear,
+        maxStudents: cls.maxStudents || 30,
+        currentStudents: cls.students.length,
+        availableSlots: (cls.maxStudents || 30) - cls.students.length,
+        students: cls.students.map(student => ({
+          _id: student._id,
+          name: `${student.firstName} ${student.lastName}`,
+          email: student.email
+        }))
+      };
+    });
 
     console.log(`[getEnrolledStudents] Found ${enrollmentData.length} classes with students`);
 
