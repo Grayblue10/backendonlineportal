@@ -208,7 +208,8 @@ const getMe = asyncHandler(async (req, res) => {
       role: role,
       isActive: user.isActive !== false,
       ...(user.studentId && { studentId: user.studentId }),
-      ...(user.employeeId && { employeeId: user.employeeId })
+      ...(user.employeeId && { employeeId: user.employeeId }),
+      ...(typeof user.yearLevel !== 'undefined' ? { yearLevel: user.yearLevel } : {})
     };
 
     console.log('Returning user data for:', userData.email);

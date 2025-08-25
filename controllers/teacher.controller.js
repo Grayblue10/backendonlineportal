@@ -221,7 +221,7 @@ export const getTeacherDashboard = asyncHandler(async (req, res, next) => {
     // Get classes assigned to this teacher
     const classes = await Class.find({ teacher: teacher._id })
       .populate('subject', 'name code')
-      .populate('students', 'firstName lastName studentId')
+      .populate('students', 'firstName lastName studentId yearLevel')
       .lean()
       .catch((err) => {
         console.log('⚠️ Error fetching classes:', err.message);
@@ -466,7 +466,7 @@ export const getClassStudents = asyncHandler(async (req, res, next) => {
 
     // Ensure the class exists and belongs to this teacher
     const cls = await Class.findById(classId)
-      .populate('students', 'firstName lastName studentId email');
+      .populate('students', 'firstName lastName studentId email yearLevel');
     if (!cls) {
       return next(new ErrorResponse('Class not found', 404));
     }
@@ -479,7 +479,8 @@ export const getClassStudents = asyncHandler(async (req, res, next) => {
       firstName: st.firstName || '',
       lastName: st.lastName || '',
       studentId: st.studentId || '',
-      email: st.email || ''
+      email: st.email || '',
+      yearLevel: typeof st.yearLevel !== 'undefined' ? st.yearLevel : undefined
     })) : [];
 
     return res.status(200).json({
@@ -601,7 +602,7 @@ export const getTeacherCourses = asyncHandler(async (req, res, next) => {
   // Get all classes taught by this teacher
   const courses = await Class.find({ teacher: teacher._id })
     .populate('subject', 'name code')
-    .populate('students', 'fullName studentId')
+    .populate('students', 'fullName studentId yearLevel')
     .sort({ createdAt: -1 });
 
   res.status(200).json({
@@ -644,7 +645,7 @@ export const getTeacherClasses = asyncHandler(async (req, res, next) => {
     try {
       classes = await Class.find({ teacher: teacher._id, ...termFilter })
         .populate('subject', 'name code')
-        .populate('students', 'firstName lastName studentId')
+        .populate('students', 'firstName lastName studentId yearLevel')
         .sort({ createdAt: -1 });
       console.log(`[getTeacherClasses] Found ${classes.length} classes for teacher ${teacher._id}`);
     } catch (classError) {
@@ -718,7 +719,7 @@ export const getTeacherSubjects = asyncHandler(async (req, res, next) => {
     try {
       classes = await Class.find({ teacher: teacher._id })
         .populate('subject', 'name code description units semester department prerequisites isActive')
-        .populate('students', 'firstName lastName studentId');
+        .populate('students', 'firstName lastName studentId yearLevel');
       console.log(`[getTeacherSubjects] Found ${classes.length} classes for teacher ${teacher._id}`);
     } catch (classError) {
       console.error(`[getTeacherSubjects] Error fetching classes:`, classError);

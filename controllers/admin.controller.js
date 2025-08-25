@@ -1054,7 +1054,7 @@ const searchStudents = asyncHandler(async (req, res) => {
         }
       ]
     })
-    .select('firstName lastName fullName email studentId _id createdAt')
+    .select('firstName lastName fullName email studentId yearLevel _id createdAt')
     .limit(parseInt(limit))
     .lean();
     
@@ -1066,7 +1066,8 @@ const searchStudents = asyncHandler(async (req, res) => {
       name: student.fullName || `${student.firstName || ''} ${student.lastName || ''}`.trim(),
       email: student.email,
       studentId: student.studentId || student._id.toString().slice(-6),
-      enrolledDate: student.createdAt
+      enrolledDate: student.createdAt,
+      yearLevel: student.yearLevel
     }));
     
     res.status(200).json({

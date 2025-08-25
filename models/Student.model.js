@@ -34,6 +34,11 @@ const studentSchema = new mongoose.Schema({
     unique: true,
     index: true
   },
+  yearLevel: {
+    type: Number,
+    enum: [1, 2, 3, 4],
+    default: 1
+  },
   // Assigned Program/Course Information
   program: {
     code: { type: String, trim: true, uppercase: true },
