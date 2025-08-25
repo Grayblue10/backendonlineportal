@@ -1129,7 +1129,7 @@ const enrollStudent = asyncHandler(async (req, res) => {
       throw new ErrorResponse('Subject not found or inactive', 404);
     }
     
-    // Enforce max 23 units per student per term/year
+    // Enforce max 30 units per student per term/year
     const term = semester === 'first' ? 'Fall' : 'Spring';
     const ay = `${academicYear}-${parseInt(academicYear) + 1}`;
 
@@ -1142,9 +1142,9 @@ const enrollStudent = asyncHandler(async (req, res) => {
 
     const currentUnits = currentClasses.reduce((sum, cls) => sum + (cls.subject?.units || 0), 0);
     const newTotalUnits = currentUnits + (subject.units || 0);
-    if (newTotalUnits > 23) {
+    if (newTotalUnits > 30) {
       throw new ErrorResponse(
-        `Unit limit exceeded: current ${currentUnits} + ${subject.units || 0} would be ${newTotalUnits} (> 23)`,
+        `Unit limit exceeded: current ${currentUnits} + ${subject.units || 0} would be ${newTotalUnits} (> 30)`,
         400
       );
     }
@@ -1189,7 +1189,7 @@ const enrollStudent = asyncHandler(async (req, res) => {
               room: bodySchedule.room || null
             }}
           : {}),
-        capacity: 30,
+        capacity: 60,
         createdBy: req.user.id
         // teacher field is optional and can be assigned later
       });
@@ -1197,7 +1197,7 @@ const enrollStudent = asyncHandler(async (req, res) => {
       console.log(`[AdminEnroll] Created new class: ${classDoc.name}`);
     } else {
       // Check class capacity
-      if (classDoc.students.length >= (classDoc.capacity || 30)) {
+      if (classDoc.students.length >= (classDoc.capacity || 60)) {
         throw new ErrorResponse('Class is at maximum capacity', 400);
       }
       
@@ -1362,7 +1362,7 @@ const assignTeacherToSubjects = asyncHandler(async (req, res) => {
           term: semester === 'first' ? 'Fall' : 'Spring',
           academicYear: `${academicYear}-${parseInt(academicYear) + 1}`,
           students: [],
-          capacity: 30,
+          capacity: 60,
           createdBy: req.user.id
         });
         
