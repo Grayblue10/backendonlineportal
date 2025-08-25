@@ -1030,7 +1030,7 @@ export const assignSubjectsToTeacher = asyncHandler(async (req, res, next) => {
         teacher: teacher._id,
         createdBy: teacher._id,
         students: [],
-        capacity: 30,
+        capacity: 60,
         academicYear: `${currentYear}-${nextYear}`,
         term: 'Fall',
         schedule: {
@@ -1096,6 +1096,10 @@ export const getEnrolledStudents = asyncHandler(async (req, res, next) => {
       // Prefer class.semester if present; else derive from term; else fallback to subject.semester
       const derivedSemesterFromTerm = term === 'Fall' ? 'First Semester' : (term === 'Spring' ? 'Second Semester' : undefined);
       const semester = cls.semester || derivedSemesterFromTerm || (cls.subject?.semester === 'first' ? 'First Semester' : (cls.subject?.semester === 'second' ? 'Second Semester' : undefined));
+      // Normalize capacity field across possible schema fields
+      const maxCap = (typeof cls.maxStudents === 'number' && cls.maxStudents > 0)
+        ? cls.maxStudents
+        : ((typeof cls.capacity === 'number' && cls.capacity > 0) ? cls.capacity : 60);
 
       return {
         _id: cls._id,
@@ -1108,9 +1112,9 @@ export const getEnrolledStudents = asyncHandler(async (req, res, next) => {
         term: term, // 'Fall' | 'Spring'
         semester: semester, // 'First Semester' | 'Second Semester'
         academicYear: cls.academicYear,
-        maxStudents: cls.maxStudents || 30,
+        maxStudents: maxCap,
         currentStudents: cls.students.length,
-        availableSlots: (cls.maxStudents || 30) - cls.students.length,
+        availableSlots: Math.max(0, maxCap - cls.students.length),
         students: cls.students.map(student => ({
           _id: student._id,
           name: `${student.firstName} ${student.lastName}`,
